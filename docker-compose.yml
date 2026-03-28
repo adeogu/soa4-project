@@ -1,1 +1,119 @@
 
+# ============================================================
+# docker-compose.yml
+#
+# Deploys ALL containers with one command: docker-compose up --build
+#
+# Containers:
+#   actor-db      - MySQL for Actor service (host port 3307)
+#   movie-db      - MySQL for Movie service (host port 3308)
+#   movie-service - Spring Boot Movie service (port 8081)
+#   actor-service - Spring Boot Actor service (port 8080)
+#
+# Each service has its OWN dedicated database container as required.
+#
+# Startup order via depends_on + healthchecks:
+#   movie-service waits for movie-db to be healthy
+#   actor-service waits for actor-db AND movie-service to be healthy
+# ============================================================
+version: '3.8'
+
+services:
+
+  # ── MySQL for Actor service ──────────────────────────────────
+  actor-db:
+    image: mysql:8.0
+    container_name: actor-db
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: actordb
+      MYSQL_USER: actor_user
+      MYSQL_PASSWORD: actor_pass
+    ports:
+      - "3307:3306" # 3307 on host avoids clash with any local MySQL on 3306
+    volumes:
+      - actor-db-data:/var/lib/mysql # persist data across restarts
+    healthcheck:
+      # wait until MySQL is actually ready to accept connections
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── MySQL for Movie service ──────────────────────────────────
+  movie-db:
+    image: mysql:8.0
+    container_name: movie-db
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: moviedb
+      MYSQL_USER: movie_user
+      MYSQL_PASSWORD: movie_pass
+    ports:
+      - "3308:3306"
+    volumes:
+      - movie-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Movie Service (Service B / Producer) ─────────────────────
+  movie-service:
+    build:
+      context: ./movie-service # path to the Dockerfile
+    container_name: movie-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      movie-db:
+        condition: service_healthy # don't start until MySQL is ready
+    environment:
+      # Override application.properties to use MySQL instead of H2.
+      # Spring Boot maps SPRING_DATASOURCE_URL -> spring.datasource.url etc.
+      SPRING_DATASOURCE_URL: jdbc:mysql://movie-db:3306/moviedb?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: movie_user
+      SPRING_DATASOURCE_PASSWORD: movie_pass
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
+      # update: create tables if they don't exist, don't drop on shutdown
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      # never: don't run data.sql in Docker (no H2)
+      SPRING_SQL_INIT_MODE: never
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/movies || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ── Actor Service (Service A / Consumer) ─────────────────────
+  actor-service:
+    build:
+      context: ./actor-service
+    container_name: actor-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      actor-db:
+        condition: service_healthy
+      movie-service:
+        condition: service_healthy # actor-service calls movie-service, so wait for it
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://actor-db:3306/actordb?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: actor_user
+      SPRING_DATASOURCE_PASSWORD: actor_pass
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_SQL_INIT_MODE: never
+      # Override movie.service.url to point at the Docker container.
+      # 'movie-service' resolves via Docker's internal DNS to the movie-service container.
+      MOVIE_SERVICE_URL: http://movie-service:8081
+      # Keep Spring MVC (Tomcat) — don't switch to Netty just because WebFlux is on classpath
+      SPRING_MAIN_WEB_APPLICATION_TYPE: servlet
+
+# ── Named volumes (data persists between docker-compose down/up) ──
+volumes:
+  actor-db-data:
+  movie-db-data:
