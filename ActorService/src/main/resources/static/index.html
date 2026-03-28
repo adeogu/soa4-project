@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Actor & Movie Manager</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #0f1117;
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 24px;
+        }
+        h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 6px; color: #f8fafc; }
+        .subtitle { color: #94a3b8; font-size: 0.9rem; margin-bottom: 28px; }
+
+        /* Status bar - shows 200 / 304 / 201 to demonstrate caching */
+        #status-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #1e2230;
+            border: 1px solid #2d3650;
+            border-radius: 8px;
+            padding: 10px 16px;
+            margin-bottom: 24px;
+            font-size: 0.88rem;
+        }
+        #status-label { color: #94a3b8; }
+        #status-code {
+            font-weight: 700;
+            font-size: 1.1rem;
+            padding: 2px 10px;
+            border-radius: 5px;
+            background: #334155;
+            color: #94a3b8;
+            transition: background 0.3s, color 0.3s;
+        }
+        #status-code.ok200 { background: #166534; color: #86efac; }
+        #status-code.ok201 { background: #1d4ed8; color: #bfdbfe; }
+        #status-code.ok304 { background: #854d0e; color: #fde68a; }
+        #status-code.err   { background: #7f1d1d; color: #fca5a5; }
+        #status-msg { color: #64748b; }
+
+        .layout { display: grid; grid-template-columns: 1fr 380px; gap: 24px; }
+
+        .card {
+            background: #1e2230;
+            border: 1px solid #2d3650;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        .card h2 { font-size: 1rem; font-weight: 600; color: #cbd5e1; margin-bottom: 14px; }
+
+        .btn {
+            border: none; border-radius: 6px;
+            padding: 8px 16px; font-size: 0.85rem;
+            font-weight: 600; cursor: pointer; transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn-blue   { background: #2563eb; color: #fff; }
+        .btn-green  { background: #16a34a; color: #fff; }
+        .btn-orange { background: #d97706; color: #fff; }
+        .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+
+        #actor-table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th {
+            background: #0f172a; color: #64748b;
+            font-weight: 600; text-transform: uppercase;
+            font-size: 0.72rem; letter-spacing: 0.06em;
+            padding: 8px 12px; text-align: left;
+        }
+        td { padding: 9px 12px; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #1a2035; }
+        .action-btn {
+            background: none; border: 1px solid #334155;
+            color: #94a3b8; padding: 3px 10px;
+            border-radius: 4px; cursor: pointer; font-size: 0.78rem;
+        }
+        .action-btn:hover { background: #334155; }
+        #empty-msg { color: #4b5563; text-align: center; padding: 24px; font-size: 0.85rem; }
+
+        .form-group { margin-bottom: 12px; }
+        label { display: block; font-size: 0.78rem; color: #64748b; margin-bottom: 4px; }
+        input {
+            width: 100%; background: #0f172a;
+            border: 1px solid #334155; color: #e2e8f0;
+            border-radius: 6px; padding: 8px 10px; font-size: 0.85rem;
+        }
+        input:focus { outline: none; border-color: #2563eb; }
+
+        #detail-panel { display: none; }
+        #detail-panel .card { background: #131720; }
+        .detail-row {
+            display: flex; justify-content: space-between;
+            padding: 7px 0; border-bottom: 1px solid #1e293b; font-size: 0.85rem;
+        }
+        .detail-row:last-child { border-bottom: none; }
+        .detail-key { color: #64748b; }
+        .detail-val { color: #e2e8f0; font-weight: 500; text-align: right; max-width: 180px; word-break: break-word; }
+        .badge { padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+        .badge-genre { background: #1e3a5f; color: #7dd3fc; }
+        .badge-year  { background: #1a2e1a; color: #86efac; }
+        .badge-nat   { background: #2e1a3a; color: #d8b4fe; }
+
+        .tabs { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 1px solid #2d3650; }
+        .tab {
+            padding: 8px 16px; cursor: pointer; font-size: 0.85rem;
+            color: #64748b; border-bottom: 2px solid transparent; transition: color 0.2s;
+        }
+        .tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        #edit-id-display { font-size: 0.8rem; color: #64748b; margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+
+<h1>🎬 Actor &amp; Movie Manager</h1>
+<p class="subtitle">Actor Service (port 8080) → Movie Service (port 8081) | ETags &amp; Async Communication Demo</p>
+
+<!-- Status bar: shows the HTTP response code of the last request.
+     This is the key UI element that demonstrates ETag caching —
+     the student can see 200 vs 304 by clicking Refresh multiple times. -->
+<div id="status-bar">
+    <span id="status-label">Last response:</span>
+    <span id="status-code">—</span>
+    <span id="status-msg">No request made yet</span>
+</div>
+
+<div class="layout">
+
+    <div>
+        <div class="btn-row">
+            <!-- Refresh sends If-None-Match header with stored ETag.
+                 Server returns 304 if nothing changed, 200 if it did. -->
+            <button class="btn btn-blue" onclick="loadActors()">⟳ Refresh Actors</button>
+        </div>
+
+        <div id="actor-table-wrap" class="card">
+            <div id="empty-msg">Click "Refresh Actors" to load data</div>
+            <table id="actor-table" style="display:none;">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Nationality</th>
+                        <th>Movie ID</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="actor-tbody"></tbody>
+            </table>
+        </div>
+
+        <div class="card" style="margin-top:20px;">
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('add')">➕ Add Actor</div>
+                <div class="tab" onclick="switchTab('edit')">✏️ Edit Actor</div>
+            </div>
+
+            <!-- ADD tab: sends POST /actors -->
+            <div id="tab-add" class="tab-content active">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="add-name" placeholder="e.g. Tom Hanks" />
+                </div>
+                <div class="form-group">
+                    <label>Nationality</label>
+                    <input type="text" id="add-nationality" placeholder="e.g. American" />
+                </div>
+                <div class="form-group">
+                    <label>Movie ID (must exist in Movie service)</label>
+                    <input type="number" id="add-movieid" placeholder="e.g. 2" />
+                </div>
+                <button class="btn btn-green" onclick="addActor()">Add Actor</button>
+            </div>
+
+            <!-- EDIT tab: sends PUT /actors/{id} -->
+            <div id="tab-edit" class="tab-content">
+                <div id="edit-id-display">No actor selected. Click "Edit" in the table.</div>
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="edit-name" placeholder="Updated name" />
+                </div>
+                <div class="form-group">
+                    <label>Nationality</label>
+                    <input type="text" id="edit-nationality" placeholder="Updated nationality" />
+                </div>
+                <div class="form-group">
+                    <label>Movie ID</label>
+                    <input type="number" id="edit-movieid" placeholder="Updated movie ID" />
+                </div>
+                <button class="btn btn-orange" onclick="saveEdit()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT: Actor detail panel — shows when "View" is clicked.
+         This is where we demonstrate the service-to-service call:
+         Actor service fetches movie details from Movie service via WebClient. -->
+    <div id="detail-panel">
+        <div class="card">
+            <h2>🎭 Actor Detail</h2>
+            <p style="font-size:0.78rem; color:#4b5563; margin-bottom:12px;">
+                Calls GET /actors/{id} — Actor service fetches movie info
+                from Movie service via async WebClient
+            </p>
+            <div id="detail-content"></div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // Base URL for all Actor service API calls
+    const ACTOR_BASE = 'http://localhost:8080';
+
+    // Stored ETag from the last GET /actors response.
+    // Sent back as If-None-Match on the next GET to enable caching.
+    let storedEtag = null;
+
+    // In-memory cache of the last actor list (used when server returns 304)
+    let cachedActors = [];
+
+    // The actor ID currently loaded into the Edit form
+    let editingActorId = null;
+
+    // ============================================================
+    // STATUS BAR
+    // Updates the coloured badge at the top to show 200 / 304 / 201 etc.
+    // This is the main visual demonstration of ETag caching.
+    // ============================================================
+    function setStatus(code, msg) {
+        const el = document.getElementById('status-code');
+        el.textContent = code;
+        el.className = '';
+        if (code === 200)      el.classList.add('ok200');
+        else if (code === 201) el.classList.add('ok201');
+        else if (code === 304) el.classList.add('ok304');
+        else if (code >= 400)  el.classList.add('err');
+        document.getElementById('status-msg').textContent = msg;
+    }
+
+    // ============================================================
+    // LOAD ACTORS — GET /actors with ETag caching
+    //
+    // First call:  no storedEtag -> server returns 200 + ETag -> store it
+    // Next call:   send If-None-Match: <storedEtag>
+    //              -> unchanged: server returns 304 -> show cachedActors
+    //              -> changed:   server returns 200 + new data + new ETag
+    // ============================================================
+    async function loadActors() {
+        try {
+            const headers = {};
+            if (storedEtag) {
+                // Send stored ETag back so server can check if data changed
+                headers['If-None-Match'] = storedEtag;
+            }
+
+            const response = await fetch(`${ACTOR_BASE}/actors`, {
+                method: 'GET',
+                headers: headers,
+                cache: 'no-store' // prevent browser doing its own caching transparently
+            });
+
+            if (response.status === 304) {
+                // Nothing changed — use our in-memory cached list
+                setStatus(304, 'Not Modified — using cached data (ETag matched)');
+                renderActors(cachedActors);
+
+            } else if (response.status === 200) {
+                // New or changed data — store the new ETag for next request
+                const newEtag = response.headers.get('ETag');
+                if (newEtag) storedEtag = newEtag;
+
+                const actors = await response.json();
+                cachedActors = actors;
+                renderActors(actors);
+                setStatus(200, `OK — ${actors.length} actor(s) loaded. ETag: ${storedEtag || 'none'}`);
+
+            } else {
+                setStatus(response.status, 'Unexpected response from server');
+            }
+
+        } catch (err) {
+            setStatus('ERR', 'Could not connect to Actor service. Is it running?');
+            console.error(err);
+        }
+    }
+
+    // ============================================================
+    // RENDER ACTORS TABLE
+    // ============================================================
+    function renderActors(actors) {
+        const tbody   = document.getElementById('actor-tbody');
+        const table   = document.getElementById('actor-table');
+        const emptyMsg = document.getElementById('empty-msg');
+
+        tbody.innerHTML = '';
+
+        if (!actors || actors.length === 0) {
+            table.style.display = 'none';
+            emptyMsg.style.display = 'block';
+            emptyMsg.textContent = 'No actors found.';
+            return;
+        }
+
+        table.style.display = 'table';
+        emptyMsg.style.display = 'none';
+
+        actors.forEach(actor => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${actor.actorId}</td>
+                <td>${actor.name}</td>
+                <td>${actor.nationality}</td>
+                <td>${actor.movieId}</td>
+                <td>
+                    <button class="action-btn" onclick="viewActor(${actor.actorId})">👁 View</button>
+                    <button class="action-btn" onclick="loadEditForm(${actor.actorId}, '${actor.name}', '${actor.nationality}', ${actor.movieId})">✏️ Edit</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+
+    // ============================================================
+    // VIEW SINGLE ACTOR — GET /actors/{id}
+    // This triggers the backend to call the Movie service via WebClient
+    // and return a combined ActorResponse DTO with both actor + movie data
+    // ============================================================
+    async function viewActor(id) {
+        try {
+            const response = await fetch(`${ACTOR_BASE}/actors/${id}`, { cache: 'no-store' });
+            const data = await response.json();
+
+            setStatus(response.status, 'Actor detail loaded — Movie service was called for movie info');
+
+            document.getElementById('detail-panel').style.display = 'block';
+            document.getElementById('detail-content').innerHTML = `
+                <div class="detail-row">
+                    <span class="detail-key">Actor ID</span>
+                    <span class="detail-val">${data.actorId}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-key">Name</span>
+                    <span class="detail-val">${data.name}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-key">Nationality</span>
+                    <span class="detail-val">
+                        <span class="badge badge-nat">${data.nationality || '—'}</span>
+                    </span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-key">Movie ID</span>
+                    <span class="detail-val">${data.movieId}</span>
+                </div>
+                <hr style="border-color:#1e293b; margin: 10px 0;"/>
+                <p style="font-size:0.75rem; color:#4b5563; margin-bottom:8px;">
+                    ↳ Fetched from Movie Service via WebClient
+                </p>
+                <div class="detail-row">
+                    <span class="detail-key">Movie Title</span>
+                    <span class="detail-val">${data.movieTitle || '<em style="color:#4b5563">unavailable</em>'}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-key">Genre</span>
+                    <span class="detail-val">
+                        <span class="badge badge-genre">${data.movieGenre || '—'}</span>
+                    </span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-key">Release Year</span>
+                    <span class="detail-val">
+                        <span class="badge badge-year">${data.movieReleaseYear || '—'}</span>
+                    </span>
+                </div>
+            `;
+        } catch (err) {
+            setStatus('ERR', 'Failed to load actor detail.');
+            console.error(err);
+        }
+    }
+
+    // ============================================================
+    // ADD ACTOR — POST /actors
+    // ============================================================
+    async function addActor() {
+        const name        = document.getElementById('add-name').value.trim();
+        const nationality = document.getElementById('add-nationality').value.trim();
+        const movieId     = parseInt(document.getElementById('add-movieid').value);
+
+        if (!name || !nationality || isNaN(movieId)) {
+            alert('Please fill in all fields.');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${ACTOR_BASE}/actors`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, nationality, movieId })
+            });
+
+            if (response.status === 201) {
+                setStatus(201, `Actor "${name}" created. Refreshing list...`);
+                document.getElementById('add-name').value = '';
+                document.getElementById('add-nationality').value = '';
+                document.getElementById('add-movieid').value = '';
+
+                // Reset ETag so next loadActors() gets fresh 200 data (not 304)
+                storedEtag = null;
+                await loadActors();
+            } else {
+                setStatus(response.status, 'Failed to create actor.');
+            }
+        } catch (err) {
+            setStatus('ERR', 'Could not connect to Actor service.');
+            console.error(err);
+        }
+    }
+
+    // ============================================================
+    // EDIT ACTOR — pre-fill form, then PUT /actors/{id}
+    // ============================================================
+    function loadEditForm(id, name, nationality, movieId) {
+        editingActorId = id;
+        document.getElementById('edit-id-display').textContent = `Editing Actor ID: ${id}`;
+        document.getElementById('edit-name').value = name;
+        document.getElementById('edit-nationality').value = nationality;
+        document.getElementById('edit-movieid').value = movieId;
+        switchTab('edit');
+    }
+
+    async function saveEdit() {
+        if (!editingActorId) {
+            alert('No actor selected. Click "Edit" on a row in the table first.');
+            return;
+        }
+
+        const name        = document.getElementById('edit-name').value.trim();
+        const nationality = document.getElementById('edit-nationality').value.trim();
+        const movieId     = parseInt(document.getElementById('edit-movieid').value);
+
+        if (!name || !nationality || isNaN(movieId)) {
+            alert('Please fill in all fields.');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${ACTOR_BASE}/actors/${editingActorId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, nationality, movieId })
+            });
+
+            if (response.status === 204) {
+                setStatus(204, `Actor ID ${editingActorId} updated. Refreshing...`);
+                editingActorId = null;
+                document.getElementById('edit-id-display').textContent = 'No actor selected.';
+
+                // Reset ETag so next loadActors() fetches fresh data
+                storedEtag = null;
+                await loadActors();
+            } else {
+                setStatus(response.status, 'Failed to update actor.');
+            }
+        } catch (err) {
+            setStatus('ERR', 'Could not connect to Actor service.');
+            console.error(err);
+        }
+    }
+
+    // ============================================================
+    // TAB SWITCHING (Add / Edit forms)
+    // ============================================================
+    function switchTab(tab) {
+        document.querySelectorAll('.tab').forEach((t, i) => {
+            t.classList.toggle('active', (i === 0 && tab === 'add') || (i === 1 && tab === 'edit'));
+        });
+        document.getElementById('tab-add').classList.toggle('active', tab === 'add');
+        document.getElementById('tab-edit').classList.toggle('active', tab === 'edit');
+    }
+
+    // Load actors automatically when the page opens
+    window.addEventListener('load', loadActors);
+</script>
+</body>
+</html>
