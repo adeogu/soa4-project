@@ -97,8 +97,8 @@ services:
     depends_on:
       actor-db:
         condition: service_healthy
-      movie-service:
-        condition: service_healthy # actor-service calls movie-service, so wait for it
+      # movie-service:
+      #   condition: service_healthy # actor-service calls movie-service, so wait for it
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://actor-db:3306/actordb?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       SPRING_DATASOURCE_USERNAME: actor_user
