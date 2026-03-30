@@ -82,7 +82,7 @@ services:
       # never: don't run data.sql in Docker (no H2)
       SPRING_SQL_INIT_MODE: never
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8081/movies || exit 1"]
+      test: ["CMD-SHELL", "wget -f http://localhost:8081/movies || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
