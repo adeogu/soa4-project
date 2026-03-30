@@ -80,8 +80,7 @@ services:
       # update: create tables if they don't exist, don't drop on shutdown
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       # never: don't run data.sql in Docker (no H2)
-      SPRING_SQL_INIT_MODE: never
-    # healthcheck:
+      SPRING_SQL_INIT_MODE: always    # healthcheck:
     #   test: ["CMD-SHELL", "wget -f http://localhost:8081/movies || exit 1"]
     #   interval: 15s
     #   timeout: 5s
@@ -106,8 +105,7 @@ services:
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      SPRING_SQL_INIT_MODE: never
-      # Override movie.service.url to point at the Docker container.
+      SPRING_SQL_INIT_MODE: always      # Override movie.service.url to point at the Docker container.
       # 'movie-service' resolves via Docker's internal DNS to the movie-service container.
       MOVIE_SERVICE_URL: http://movie-service:8081
       # Keep Spring MVC (Tomcat) — don't switch to Netty just because WebFlux is on classpath
