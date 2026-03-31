@@ -60,12 +60,14 @@ public class MovieClient {
      *                            instead of throwing an exception (graceful degradation)
      * .block()                  - wait for result (bridges reactive -> Spring MVC)
      */
+
     public Movie getMovieById(Long movieId) {
         return webClient.get()
                 .uri("/movies/{id}", movieId)
                 .retrieve()
                 .bodyToMono(Movie.class)
-                .onErrorReturn(null)
-                .block();
+                .onErrorResume(e -> Mono.empty())  // gracefully return empty on error
+                .blockOptional()                    // returns Optional<Movie>
+                .orElse(null);                      // null if empty, controller handles it
     }
 }
