@@ -77,6 +77,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: movie_pass
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
+      SPRING_JACKSON_PROPERTY_NAMING_STRATEGY: LOWER_CAMEL_CASE
+
       # update: create tables if they don't exist, don't drop on shutdown
       SPRING_JPA_HIBERNATE_DDL_AUTO: create
       # never: don't run data.sql in Docker (no H2)
@@ -104,6 +106,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: actor_pass
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
+      SPRING_JACKSON_PROPERTY_NAMING_STRATEGY: LOWER_CAMEL_CASE
+
       SPRING_JPA_HIBERNATE_DDL_AUTO: create
       SPRING_SQL_INIT_MODE: always      # Override movie.service.url to point at the Docker container.
       # 'movie-service' resolves via Docker's internal DNS to the movie-service container.
