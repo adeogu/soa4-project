@@ -475,8 +475,9 @@
 
                 // Reset ETag so next loadActors() fetches fresh data
                 storedEtag = null;
+            setTimeout(async () => {
                 await loadActors();
-            } else {
+            }, 1500);            } else {
                 setStatus(response.status, 'Failed to update actor.');
             }
         } catch (err) {
