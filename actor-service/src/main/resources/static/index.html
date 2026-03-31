@@ -392,43 +392,47 @@
     // ============================================================
     // ADD ACTOR — POST /actors
     // ============================================================
-    async function addActor() {
-        const name        = document.getElementById('add-name').value.trim();
-        const nationality = document.getElementById('add-nationality').value.trim();
-        const movieId     = parseInt(document.getElementById('add-movieid').value);
+   async function addActor() {
+    const name        = document.getElementById('add-name').value.trim();
+    const nationality = document.getElementById('add-nationality').value.trim();
+    const movieId     = parseInt(document.getElementById('add-movieid').value);
 
-        if (!name || !nationality || isNaN(movieId)) {
-            alert('Please fill in all fields.');
-            return;
-        }
+    if (!name || !nationality || isNaN(movieId)) {
+        alert('Please fill in all fields.');
+        return;
+    }
 
-        try {
-            const response = await fetch(`${ACTOR_BASE}/actors`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, nationality, movieId })
-            });
+    try {
+        const response = await fetch(`${ACTOR_BASE}/actors`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, nationality, movieId })
+        });
 
-            if (response.status === 201) {
-                setStatus(201, `Actor "${name}" created. Refreshing list...`);
-                document.getElementById('add-name').value = '';
-                document.getElementById('add-nationality').value = '';
-                document.getElementById('add-movieid').value = '';
+        if (response.status === 201) {
+            // Show 201 first so it's visible
+            setStatus(201, `Actor "${name}" created successfully!`);
 
-                // Reset ETag so next loadActors() gets fresh 200 data (not 304)
-                storedEtag = null;
-                 // Wait 1.5 seconds so 201 is visible, THEN refresh
+            // Clear the form
+            document.getElementById('add-name').value = '';
+            document.getElementById('add-nationality').value = '';
+            document.getElementById('add-movieid').value = '';
+
+            storedEtag = null;
+
+            // Wait 1.5 seconds so 201 is visible, THEN refresh
             setTimeout(async () => {
                 await loadActors();
-            }, 4500);
-            } else {
-                setStatus(response.status, 'Failed to create actor.');
-            }
-        } catch (err) {
-            setStatus('ERR', 'Could not connect to Actor service.');
-            console.error(err);
+            }, 1500);
+
+        } else {
+            setStatus(response.status, 'Failed to create actor.');
         }
+    } catch (err) {
+        setStatus('ERR', 'Could not connect to Actor service.');
+        console.error(err);
     }
+}
 
     // ============================================================
     // EDIT ACTOR — pre-fill form, then PUT /actors/{id}
