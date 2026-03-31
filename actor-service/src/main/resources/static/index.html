@@ -273,19 +273,8 @@
                 setStatus(304, 'Not Modified — using cached data (ETag matched)');
                 renderActors(cachedActors);
 
-            } 
-            else if (response.status === 201) {
-    setStatus(201, `Actor "${name}" created successfully!`);
-    document.getElementById('add-name').value = '';
-    document.getElementById('add-nationality').value = '';
-    document.getElementById('add-movieid').value = '';
-    storedEtag = null;
-
-    // Wait 1.5 seconds so the 201 is visible before refreshing
-    setTimeout(async () => {
-        await loadActors();
-    }, 4500);
-} else if (response.status === 200) {
+            }
+             else if (response.status === 200) {
                 // New or changed data — store the new ETag for next request
                 const newEtag = response.headers.get('ETag');
                 if (newEtag) storedEtag = newEtag;
@@ -428,7 +417,10 @@
 
                 // Reset ETag so next loadActors() gets fresh 200 data (not 304)
                 storedEtag = null;
+                 // Wait 1.5 seconds so 201 is visible, THEN refresh
+            setTimeout(async () => {
                 await loadActors();
+            }, 1500);
             } else {
                 setStatus(response.status, 'Failed to create actor.');
             }
