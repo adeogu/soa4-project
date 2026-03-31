@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import ie.tus.eng.actor_service.model.Movie;
+import reactor.core.publisher.Mono;
 
 /**
  * MovieClient - Asynchronous Non-Blocking HTTP client for the Movie service
