@@ -1,15 +1,5 @@
 package ie.tus.eng.actor_service.model;
 
-/**
- * Movie - Plain Old Java Object (POJO) in the Actor service
- *
- * This is NOT a JPA entity — no @Entity, @Table, @Id etc.
- * Its only job is to deserialize the JSON that comes back from the
- * Movie service when WebClient calls GET /movies/{id}.
- *
- * This is exactly the same pattern as Lab 7, where Course.java was
- * copied into the Student service with all JPA annotations removed.
- */
 public class Movie {
 
     private Long movieId;
@@ -17,7 +7,6 @@ public class Movie {
     private String genre;
     private Integer releaseYear;
 
-    // No-args constructor needed by Jackson to deserialize JSON -> object
     public Movie() {}
 
     public Movie(Long movieId, String title, String genre, Integer releaseYear) {
