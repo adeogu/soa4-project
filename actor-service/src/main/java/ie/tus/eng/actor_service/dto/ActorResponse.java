@@ -3,20 +3,7 @@ package ie.tus.eng.actor_service.dto;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import ie.tus.eng.actor_service.model.Movie;
 
-/**
- * ActorResponse - Data Transfer Object (DTO)
- *
- * Returned to the client when they request a single actor (GET /actors/{id}).
- * Combines data from both:
- *   - The Actor (from our local database)
- *   - The Movie (fetched from the Movie service via WebClient)
- *
- * @JsonPropertyOrder ensures actor fields appear first in the JSON output.
- * Without this, Jackson orders fields alphabetically which looks messy.
- *
- * Same pattern as Lab 7's StudentResponse.java which combined
- * Student data with Course data fetched from the Course service.
- */
+
 @JsonPropertyOrder({"actorId", "name", "nationality", "movieId",
                     "movieTitle", "movieGenre", "movieReleaseYear"})
 public class ActorResponse {
@@ -34,13 +21,6 @@ public class ActorResponse {
 
     public ActorResponse() {}
 
-    /**
-     * Used in ActorController after fetching both the actor (local)
-     * and the movie (from Movie service) to build the combined response.
-     *
-     * If movie is null (Movie service was unreachable), the movie fields
-     * stay null — graceful degradation, actor data still comes through.
-     */
     public ActorResponse(Long actorId, String name, String nationality,
                          Long movieId, Movie movie) {
         this.actorId = actorId;
